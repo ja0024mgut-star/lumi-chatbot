@@ -315,9 +315,9 @@ No solicites datos sensibles innecesarios en el chat.
                 model="claude-haiku-4-5-20251001",
                 max_tokens=700,
                 system=system_prompt,
-                historial = st.session_state.messages[-10:] 
-                messages=[ {"role": m["role"], "content": m["content"]} 
-                          for m in historial
+                messages=[
+    {"role": m["role"], "content": m["content"]}
+    for m in st.session_state.messages
                 ]
             )
 
