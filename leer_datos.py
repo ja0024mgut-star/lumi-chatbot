@@ -14,7 +14,9 @@ SHEETS = {
     "Tareas":       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRlv5wwLwxItimnvbc2cRZmyvMCR9pd2JNERaQXKmB7m33qgQsVJ3mf3KrNufieUkfhsv9s-BK6BN-A/pub?gid=248742090&single=true&output=csv",
     "Profesores":   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRlv5wwLwxItimnvbc2cRZmyvMCR9pd2JNERaQXKmB7m33qgQsVJ3mf3KrNufieUkfhsv9s-BK6BN-A/pub?gid=1604430808&single=true&output=csv",
     "Asistencias":  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRlv5wwLwxItimnvbc2cRZmyvMCR9pd2JNERaQXKmB7m33qgQsVJ3mf3KrNufieUkfhsv9s-BK6BN-A/pub?gid=195400202&single=true&output=csv",
+    "Analytics":    "https://docs.google.com/spreadsheets/d/e/2PACX-1vRlv5wwLwxItimnvbc2cRZmyvMCR9pd2JNERaQXKmB7m33qgQsVJ3mf3KrNufieUkfhsv9s-BK6BN-A/pub?gid=1455504577&single=true&output=csv",
 }
+
 
 def leer_sheet(nombre, url):
     """Lee una hoja de Google Sheets saltando la fila de titulo."""
