@@ -1,6 +1,11 @@
 import streamlit as st
 import anthropic
 import os
+
+from datetime import datetime
+import urllib.request
+import json
+
 from dotenv import load_dotenv
 from datos_educativos import INFO_INSTITUCIONAL
 from datos_colegio import generar_contexto_completo
@@ -29,17 +34,47 @@ st.caption("Cundinamarca y Boyacá · Transformación Digital Educativa")
 
 # Sidebar con estadísticas básicas
 with st.sidebar:
-    st.header("📊 Panel de Uso")
-    if "contador" not in st.session_state:
-        st.session_state.contador = {}
+    st.header("📊 Panel de Análisis")
     
-    st.metric("Consultas hoy", len(st.session_state.get("messages", [])))
+    consultas = st.session_state.get("analytics", [])
+    total = len(consultas)
     
+    st.metric("Consultas en esta sesión", total)
+    
+    if total > 0:
+        st.divider()
+        
+        # Temas más consultados
+        st.subheader("🔖 Temas frecuentes")
+        from collections import Counter
+        temas = Counter([c["tema"] for c in consultas])
+        for tema, cantidad in temas.most_common(5):
+            porcentaje = int((cantidad / total) * 100)
+            st.progress(porcentaje / 100, text=f"{tema}: {cantidad}")
+
+        st.divider()
+
+        # Horas pico
+        st.subheader("🕐 Horas pico")
+        horas = Counter([c["hora_num"] for c in consultas])
+        for hora, cantidad in sorted(horas.items()):
+            st.write(f"{hora}:00 → {'🟦' * cantidad} ({cantidad})")
+
+        st.divider()
+
+        # Ultimas consultas
+        st.subheader("📋 Últimas consultas")
+        for c in reversed(consultas[-5:]):
+            st.caption(f"🕐 {c['hora']} | {c['tema']}: {c['pregunta'][:40]}...")
+
+    else:
+        st.info("Las estadísticas aparecerán cuando lleguen consultas.")
+
     st.divider()
-    st.subheader("🔖 Temas frecuentes")
-    temas = ["📅 Calendario", "📋 Matrículas", "📄 Certificados", 
-             "🚌 Rutas", "📚 Recursos"]
-    for t in temas:
+    st.subheader("🔖 Accesos rápidos")
+    temas_rapidos = ["📅 Calendario", "📋 Matrículas", 
+                     "📄 Certificados", "🚌 Rutas", "📚 Recursos"]
+    for t in temas_rapidos:
         if st.button(t, use_container_width=True):
             st.session_state.pregunta_rapida = t
 
@@ -52,41 +87,7 @@ with st.sidebar:
 - 👶 ICBF: **018000 918080**
 - ⚖️ Fiscalía: **122**
 """)
-
-    st.caption("🔒 Tus datos están protegidos según la Ley 1581 de 2012")
-    
-
-# Inicializar historial
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": """👋 Bienvenido/a a **Lumi**, asistente virtual oficial de tu institución educativa.
-
----
-
-🔒 **Aviso de Privacidad y Protección de Datos**
-
-Antes de continuar, te informamos que:
-
-- 📋 Los datos que compartas en esta conversación son **confidenciales** y están protegidos por la **Ley 1581 de 2012** (Protección de Datos Personales de Colombia).
-- 🔐 La información es usada **únicamente** para orientarte y gestionar tus solicitudes escolares.
-- 🚫 Tus datos **no serán compartidos** con terceros sin tu consentimiento.
-- 👤 Tienes derecho a **conocer, actualizar y rectificar** tus datos en cualquier momento dirigiéndote a la secretaría del colegio.
-- 📵 Te recomendamos **no compartir contraseñas ni información sensible** en este chat.
-
-Al continuar usando Lumi, aceptas estas condiciones. ✅
-
----
-
-¿En qué te puedo ayudar hoy? Puedo orientarte sobre:
-- 📅 Horarios y calendario académico
-- 📊 Notas y asistencias
-- 📄 Trámites y certificados
-- 🚨 Situaciones de riesgo o convivencia
-- 📚 Recursos de aprendizaje"""
-    })
-
+    st.caption("🔒 Ley 1581 de 2012 - Datos protegidos")
 # Mostrar historial
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -101,16 +102,48 @@ if "pregunta_rapida" in st.session_state:
     del st.session_state.pregunta_rapida
 
 if prompt:
-    # Mostrar mensaje del usuario
+    registrar_consulta(prompt)  # ← agregar esta línea
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
+def detectar_tema(texto):
+    texto = texto.lower()
+    if any(w in texto for w in ["horario", "clase", "hora"]):
+        return "Horarios"
+    elif any(w in texto for w in ["nota", "calificacion", "promedio"]):
+        return "Notas"
+    elif any(w in texto for w in ["tarea", "trabajo", "entrega"]):
+        return "Tareas"
+    elif any(w in texto for w in ["certificado", "constancia"]):
+        return "Certificados"
+    elif any(w in texto for w in ["falta", "inasistencia", "excusa"]):
+        return "Asistencias"
+    elif any(w in texto for w in ["bullying", "acoso", "maltrato", "miedo"]):
+        return "Proteccion"
+    elif any(w in texto for w in ["profesor", "docente"]):
+        return "Profesores"
+    elif any(w in texto for w in ["ruta", "bus", "transporte"]):
+        return "Rutas"
+    else:
+        return "General"
 
+def registrar_consulta(pregunta):
+    ahora = datetime.now()
+    tema = detectar_tema(pregunta)
+    if "analytics" not in st.session_state:
+        st.session_state.analytics = []
+    st.session_state.analytics.append({
+        "fecha": ahora.strftime("%d/%m/%Y"),
+        "hora": ahora.strftime("%H:%M"),
+        "hora_num": ahora.hour,
+        "pregunta": pregunta[:80],
+        "tema": tema
+    })
     # Llamar a Claude
     with st.chat_message("assistant"):
         with st.spinner("Consultando..."):
             client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-            
+       
             system_prompt = f"""Eres Lumi, asistente virtual oficial de instituciones
 educativas de Cundinamarca y Boyaca, Colombia.
 
