@@ -96,16 +96,7 @@ for msg in st.session_state.messages:
 # Input del usuario
 prompt = st.chat_input("Escribe tu pregunta aquí...")
 
-# Manejar botones rápidos del sidebar
-if "pregunta_rapida" in st.session_state:
-    prompt = st.session_state.pregunta_rapida
-    del st.session_state.pregunta_rapida
-
-if prompt:
-    registrar_consulta(prompt)  # ← agregar esta línea
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+# ── Funciones de analytics ────────────────────────────
 def detectar_tema(texto):
     texto = texto.lower()
     if any(w in texto for w in ["horario", "clase", "hora"]):
@@ -129,7 +120,6 @@ def detectar_tema(texto):
 
 def registrar_consulta(pregunta):
     ahora = datetime.now()
-    tema = detectar_tema(pregunta)
     if "analytics" not in st.session_state:
         st.session_state.analytics = []
     st.session_state.analytics.append({
@@ -137,13 +127,27 @@ def registrar_consulta(pregunta):
         "hora": ahora.strftime("%H:%M"),
         "hora_num": ahora.hour,
         "pregunta": pregunta[:80],
-        "tema": tema
+        "tema": detectar_tema(pregunta)
     })
+
+# ── Manejar botones rápidos del sidebar ──────────────
+if "pregunta_rapida" in st.session_state:
+    prompt = st.session_state.pregunta_rapida
+    del st.session_state.pregunta_rapida
+
+# ── Manejar input del usuario ─────────────────────────
+if prompt:
+    registrar_consulta(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
     # Llamar a Claude
     with st.chat_message("assistant"):
         with st.spinner("Consultando..."):
             client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-       
+            
+    
             system_prompt = f"""Eres Lumi, asistente virtual oficial de instituciones
 educativas de Cundinamarca y Boyaca, Colombia.
 
