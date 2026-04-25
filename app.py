@@ -218,6 +218,7 @@ if prompt:
     with st.chat_message("assistant"):
         with st.spinner("Consultando..."):
             client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            contexto_relevante = filtrar_contexto(prompt, generar_contexto_completo())
 
             system_prompt = f"""Eres Lumi, asistente virtual oficial de instituciones
 educativas de Cundinamarca y Boyaca, Colombia.
@@ -320,7 +321,6 @@ No solicites datos sensibles innecesarios en el chat.
     for m in st.session_state.messages
                 ]
             )
-
             respuesta = response.content[0].text
             st.markdown(respuesta)
             st.session_state.messages.append({
