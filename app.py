@@ -5,7 +5,7 @@ from datetime import datetime
 from collections import Counter
 import urllib.request
 import json
-
+import time
 from dotenv import load_dotenv
 from datos_educativos import INFO_INSTITUCIONAL
 from datos_colegio import generar_contexto_completo
@@ -13,6 +13,22 @@ from psicopedagogia import INFO_PSICOPEDAGOGIA
 
 load_dotenv()
 
+
+def llamar_api_con_retry(client, system_prompt, messages, max_intentos=3):
+    for intento in range(max_intentos):
+        try:
+            return client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=500,
+                system=system_prompt,
+                messages=messages
+            )
+        except anthropic.RateLimitError:
+            if intento < max_intentos - 1:
+                espera = 2 ** intento  # 1s, 2s, 4s
+                time.sleep(espera)
+            else:
+                raise
 # ── Funciones de analytics ────────────────────────────
 def detectar_tema(texto):
     texto = texto.lower()
@@ -34,6 +50,39 @@ def detectar_tema(texto):
         return "Rutas"
     else:
         return "General"
+
+def generar_contexto_relevante(pregunta, contexto_completo):
+    tema = detectar_tema(pregunta)
+    lineas = contexto_completo.split('\n')
+    
+    if tema == "Horarios":
+        # Solo incluir sección de horarios
+        return extraer_seccion(lineas, "HORARIOS DE CLASES")
+    elif tema == "Tareas":
+        return extraer_seccion(lineas, "TAREAS Y EVALUACIONES")
+    elif tema == "Notas" or tema == "Asistencias":
+        return extraer_seccion(lineas, "ESTUDIANTES REGISTRADOS") + \
+               extraer_seccion(lineas, "REGISTRO DE ASISTENCIAS")
+    elif tema == "Profesores":
+        return extraer_seccion(lineas, "DIRECTORIO DE PROFESORES")
+    else:
+        return contexto_completo  # Solo para General devuelve todo
+
+def extraer_seccion(lineas, titulo):
+    resultado = []
+    dentro = False
+    for linea in lineas:
+        if titulo in linea:
+            dentro = True
+        elif dentro and any(t in linea for t in [
+            "ESTUDIANTES REGISTRADOS", "HORARIOS DE CLASES",
+            "TAREAS Y EVALUACIONES", "DIRECTORIO DE PROFESORES",
+            "REGISTRO DE ASISTENCIAS"
+        ]) and titulo not in linea:
+            break
+        if dentro:
+            resultado.append(linea)
+    return '\n'.join(resultado)
 
 def registrar_consulta(pregunta):
     ahora = datetime.now()
@@ -185,8 +234,11 @@ PERSONALIDAD
 ════════════════════════════════════
 {INFO_INSTITUCIONAL}
 
-════════════════════════════════════
 2. DATOS DEL COLEGIO
+════════════════════════════════════
+{contexto_relevante}
+════════════════════════════════════
+3. DATOS DEL COLEGIO
 ════════════════════════════════════
 {generar_contexto_completo()}
 
@@ -261,11 +313,11 @@ No solicites datos sensibles innecesarios en el chat.
 
             response = client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=500,
+                max_tokens=700,
                 system=system_prompt,
-                messages=[
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.messages
+                historial = st.session_state.messages[-10:] 
+                messages=[ {"role": m["role"], "content": m["content"]} 
+                          for m in historial
                 ]
             )
 
