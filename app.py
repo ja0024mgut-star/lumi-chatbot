@@ -218,7 +218,7 @@ if prompt:
     with st.chat_message("assistant"):
         with st.spinner("Consultando..."):
             client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-            contexto_relevante = filtrar_contexto(prompt, generar_contexto_completo())
+            contexto_relevante = generar_contexto_relevante(prompt, generar_contexto_completo())
 
             system_prompt = f"""Eres Lumi, asistente virtual oficial de instituciones
 educativas de Cundinamarca y Boyaca, Colombia.
@@ -238,10 +238,6 @@ PERSONALIDAD
 2. DATOS DEL COLEGIO
 ════════════════════════════════════
 {contexto_relevante}
-════════════════════════════════════
-3. DATOS DEL COLEGIO
-════════════════════════════════════
-{generar_contexto_completo()}
 
 INSTRUCCIONES DE BUSQUEDA:
 - Horarios → busca en HORARIOS DE CLASES
